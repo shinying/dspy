@@ -143,7 +143,7 @@ def split_message_content_for_custom_types(messages: list[dict[str, Any]]) -> li
 
             # Add text before the current block
             if start > last_end:
-                result.append({"type": "text", "text": content[last_end:start]})
+                result.append({"type": "input_text", "text": content[last_end:start]})
 
             # Parse the JSON inside the block
             custom_type_content = match.group(1).strip()
@@ -161,7 +161,7 @@ def split_message_content_for_custom_types(messages: list[dict[str, Any]]) -> li
                     result.append(custom_type_content)
             else:
                 # fallback to raw string if it's not valid JSON
-                result.append({"type": "text", "text": custom_type_content})
+                result.append({"type": "input_text", "text": custom_type_content})
 
             last_end = end
 
@@ -171,7 +171,7 @@ def split_message_content_for_custom_types(messages: list[dict[str, Any]]) -> li
 
         # Add any remaining text after the last match
         if last_end < len(content):
-            result.append({"type": "text", "text": content[last_end:]})
+            result.append({"type": "input_text", "text": content[last_end:]})
 
         message["content"] = result
 

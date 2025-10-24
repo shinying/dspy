@@ -62,7 +62,7 @@ def format_field_value(field_info: FieldInfo, value: Any, assume_text=True) -> s
     if assume_text:
         return string_value
     else:
-        return {"type": "text", "text": string_value}
+        return {"type": "input_text", "text": string_value}
 
 
 def _get_json_schema(field_type):

@@ -45,7 +45,7 @@ def bootstrap_trace_data(
         devset=dataset,
         num_threads=num_threads,
         display_progress=True,
-        provide_traceback=False,  # TODO(check with team)
+        provide_traceback=True,  # Changed to True to get full tracebacks during GEPA
         max_errors=len(dataset) * 10,  # TODO(check with team)
         failure_score=failure_score,
     )

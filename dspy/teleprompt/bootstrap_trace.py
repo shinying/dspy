@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from types import MethodType
 from typing import Any, Callable, TypedDict
 
+# Import for diagnostic logging
+from dspy.primitives.prediction import Prediction
+
 import dspy
 from dspy.evaluate.evaluate import Evaluate
 from dspy.primitives.example import Example
@@ -51,6 +54,29 @@ def bootstrap_trace_data(
     )
 
     def wrapped_metric(example, prediction, trace=None):
+        # Diagnostic: Check if we received a tuple or a Prediction object
+        if not isinstance(prediction, tuple):
+            import sys
+            import threading
+            # Log diagnostic information before failing
+            print(f"\n{'='*80}", file=sys.stderr, flush=True)
+            print(f"[ERROR] wrapped_metric received non-tuple prediction!", file=sys.stderr, flush=True)
+            print(f"  Thread: {threading.current_thread().name}", file=sys.stderr, flush=True)
+            print(f"  Type: {type(prediction)}", file=sys.stderr, flush=True)
+            print(f"  Is Prediction: {isinstance(prediction, Prediction)}", file=sys.stderr, flush=True)
+            if hasattr(prediction, '__iter__'):
+                try:
+                    items = list(prediction)
+                    print(f"  Iterable with {len(items)} items: {items}", file=sys.stderr, flush=True)
+                except:
+                    pass
+            # Check if program.forward is still patched
+            print(f"  program.forward type: {type(program.forward)}", file=sys.stderr, flush=True)
+            print(f"  program.forward is MethodType: {isinstance(program.forward, MethodType)}", file=sys.stderr, flush=True)
+            has_instance_forward = 'forward' in program.__dict__
+            print(f"  'forward' in program.__dict__: {has_instance_forward}", file=sys.stderr, flush=True)
+            print(f"{'='*80}\n", file=sys.stderr, flush=True)
+
         prediction, _ = prediction
         if isinstance(prediction, FailedPrediction):
             return prediction.format_reward or format_failure_score

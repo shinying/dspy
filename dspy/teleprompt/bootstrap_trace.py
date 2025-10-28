@@ -62,6 +62,7 @@ def bootstrap_trace_data(
             print(f"\n{'='*80}", file=sys.stderr, flush=True)
             print(f"[ERROR] wrapped_metric received non-tuple prediction!", file=sys.stderr, flush=True)
             print(f"  Thread: {threading.current_thread().name}", file=sys.stderr, flush=True)
+            print(f"  program instance id: {id(program)}", file=sys.stderr, flush=True)
             print(f"  Type: {type(prediction)}", file=sys.stderr, flush=True)
             print(f"  Is Prediction: {isinstance(prediction, Prediction)}", file=sys.stderr, flush=True)
             if hasattr(prediction, '__iter__'):
@@ -75,6 +76,11 @@ def bootstrap_trace_data(
             print(f"  program.forward is MethodType: {isinstance(program.forward, MethodType)}", file=sys.stderr, flush=True)
             has_instance_forward = 'forward' in program.__dict__
             print(f"  'forward' in program.__dict__: {has_instance_forward}", file=sys.stderr, flush=True)
+            # Check if it's the patched version by comparing function names
+            current_forward_func = program.forward.__func__ if hasattr(program.forward, '__func__') else None
+            print(f"  program.forward.__func__.__name__: {current_forward_func.__name__ if current_forward_func else 'N/A'}", file=sys.stderr, flush=True)
+            print(f"  Expected patched name: 'patched_forward'", file=sys.stderr, flush=True)
+            print(f"  Is patched: {current_forward_func.__name__ == 'patched_forward' if current_forward_func else False}", file=sys.stderr, flush=True)
             print(f"{'='*80}\n", file=sys.stderr, flush=True)
 
         prediction, _ = prediction
@@ -134,7 +140,9 @@ def bootstrap_trace_data(
 
                 return failed_pred, trace
 
-    program.forward = MethodType(patched_forward, program)
+    # Store the patched forward for verification
+    patched_forward_method = MethodType(patched_forward, program)
+    program.forward = patched_forward_method
 
     try:
         results = evaluator(
@@ -143,7 +151,19 @@ def bootstrap_trace_data(
             callback_metadata=callback_metadata,
         ).results
     finally:
-        program.forward = original_forward
+        # Only restore if the current forward is still the one we patched
+        # This prevents race conditions where another bootstrap_trace_data call
+        # might have patched the same program instance
+        if program.forward is patched_forward_method:
+            program.forward = original_forward
+        else:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"bootstrap_trace_data: program.forward was modified during evaluation! "
+                f"Expected {patched_forward_method}, got {program.forward}. "
+                f"Not restoring original_forward to avoid corrupting concurrent evaluations."
+            )
 
     data = []
     for example_ind, (example, prediction, score) in enumerate(results):

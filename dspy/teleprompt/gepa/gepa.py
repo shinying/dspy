@@ -507,6 +507,82 @@ class GEPA(Teleprompter):
             for k, v in student.named_predictors()
         }
 
+        # Create a logging wrapper for reflection_lm to debug token counts
+        def logging_reflection_lm_wrapper(x):
+            """Wrapper that logs prompts/messages and token counts before calling reflection_lm."""
+            logger.info("=" * 100)
+            logger.info("REFLECTION LM CALL - TOKEN COUNT ANALYSIS")
+            logger.info("=" * 100)
+
+            # Try to estimate token count
+            try:
+                import tiktoken
+                encoding = tiktoken.get_encoding("cl100k_base")
+
+                if isinstance(x, str):
+                    tokens = len(encoding.encode(x))
+                    logger.info(f"Input type: str")
+                    logger.info(f"Input length: {len(x):,} characters")
+                    logger.info(f"Estimated tokens: {tokens:,}")
+                    if len(x) > 1000:
+                        logger.info(f"First 500 chars:\n{x[:500]}")
+                        logger.info(f"...[{len(x)-1000:,} chars omitted]...")
+                        logger.info(f"Last 500 chars:\n{x[-500:]}")
+                    else:
+                        logger.info(f"Full content:\n{x}")
+                elif isinstance(x, list):
+                    total_tokens = 0
+                    num_images = 0
+                    logger.info(f"Input type: list with {len(x)} messages")
+                    for i, msg in enumerate(x):
+                        logger.info(f"\n  Message {i}:")
+                        if isinstance(msg, dict):
+                            logger.info(f"    Role: {msg.get('role', 'unknown')}")
+                            content = msg.get('content', '')
+                            if isinstance(content, str):
+                                msg_tokens = len(encoding.encode(content))
+                                total_tokens += msg_tokens
+                                logger.info(f"    Content type: str")
+                                logger.info(f"    Characters: {len(content):,}")
+                                logger.info(f"    Tokens: {msg_tokens:,}")
+                            elif isinstance(content, list):
+                                logger.info(f"    Content type: list with {len(content)} items")
+                                for j, item in enumerate(content):
+                                    if isinstance(item, dict):
+                                        item_type = item.get('type', 'unknown')
+                                        if item_type == 'text':
+                                            text = item.get('text', '')
+                                            item_tokens = len(encoding.encode(text))
+                                            total_tokens += item_tokens
+                                            logger.info(f"      Item {j}: text ({len(text):,} chars, {item_tokens:,} tokens)")
+                                        elif item_type in ['image', 'image_url']:
+                                            num_images += 1
+                                            # Estimate ~500 tokens per image
+                                            total_tokens += 500
+                                            logger.info(f"      Item {j}: image (~500 tokens estimated)")
+                    logger.info(f"\n  TOTAL:")
+                    logger.info(f"    Estimated text tokens: ~{total_tokens:,}")
+                    logger.info(f"    Total images: {num_images}")
+                    logger.info(f"    GRAND TOTAL: ~{total_tokens:,} tokens")
+                    if total_tokens > 100000:
+                        logger.warning(f"    ⚠️  WARNING: Token count ({total_tokens:,}) likely exceeds context window!")
+                else:
+                    logger.info(f"Input type: {type(x)}")
+                    logger.info(f"Input: {str(x)[:500]}")
+            except Exception as e:
+                logger.warning(f"Could not estimate token count: {e}")
+                logger.info(f"Input type: {type(x)}")
+                if isinstance(x, str):
+                    logger.info(f"Input length: {len(x):,} characters")
+                    logger.info(f"First 500 chars: {x[:500]}")
+
+            logger.info("=" * 100)
+
+            # Call the actual reflection_lm
+            result = self.reflection_lm(x)
+            logger.info(f"✓ Reflection LM call succeeded")
+            return result[0]
+
         # Build the DSPy adapter that encapsulates evaluation, trace capture, feedback extraction, and instruction proposal
         adapter = DspyAdapter(
             student_module=student,
@@ -530,7 +606,7 @@ class GEPA(Teleprompter):
             adapter=adapter,
 
             # Reflection-based configuration
-            reflection_lm=(lambda x: self.reflection_lm(x)[0]) if self.reflection_lm is not None else None,
+            reflection_lm=logging_reflection_lm_wrapper if self.reflection_lm is not None else None,
             candidate_selection_strategy=self.candidate_selection_strategy,
             skip_perfect_score=self.skip_perfect_score,
             reflection_minibatch_size=self.reflection_minibatch_size,

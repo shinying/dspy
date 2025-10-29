@@ -21,7 +21,7 @@ class ParallelExecutor:
         disable_progress_bar=False,
         provide_traceback=None,
         compare_results=False,
-        timeout=600,  # Increased from 120 to 600 seconds (10 minutes) for long-running tasks like video generation
+        timeout=900,  # Increased from 120 to 900 seconds (15 minutes) for long-running tasks like video generation
         straggler_limit=3,
     ):
         """

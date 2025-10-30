@@ -72,7 +72,7 @@ class Image(Type):
             image_url = encode_image(self.url)
         except Exception as e:
             raise ValueError(f"Failed to format image for DSPy: {e}")
-        return [{"type": "input_image", "image_url": image_url}]
+        return [{"type": "image_url", "image_url": {"url": image_url}}]
 
     @classmethod
     def from_url(cls, url: str, download: bool = False):

@@ -44,7 +44,8 @@ class ParallelExecutor:
         self.failed_indices = []
         self.exceptions_map = {}
 
-    def execute(self, function, data):
+    def execute(self, function, data, compare_results=False):
+        self.compare_results = compare_results
         tqdm.tqdm._instances.clear()
         wrapped = self._wrap_function(function)
         return self._execute_parallel(wrapped, data)

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable
 if TYPE_CHECKING:
     import pandas as pd
 
+from librosa import example
 import tqdm
 
 import dspy
@@ -167,12 +168,34 @@ class Evaluate:
             compare_results=True,
         )
 
-        def process_item(example):
+        # def process_item(example):
+        #     prediction = program(**example.inputs())
+        #     score = metric(example, prediction)
+        #     return prediction, score
+
+        # results = executor.execute(process_item, devset)
+        # assert len(devset) == len(results)
+
+        # Hardcode the two-step evaluation for video generation tasks
+        def reason(example):
             prediction = program(**example.inputs())
+            return prediction
+        predictions = executor.execute(reason, devset)
+
+        # program.forward is patched to return a tuple of (dspy.Prediction, trace)
+        videos = [program.generate_video(
+                    example.image_path,
+                    prediction[0].detailed_prompt,
+                    prediction[0].refined_track)
+                for example, prediction in zip(devset, predictions)]
+        for prediction, video in zip(predictions, videos):
+            prediction[0].video = video
+
+        def judge(inputs):
+            example, prediction = inputs
             score = metric(example, prediction)
             return prediction, score
-
-        results = executor.execute(process_item, devset)
+        results = executor.execute(judge, zip(devset, predictions))
         assert len(devset) == len(results)
 
         results = [((dspy.Prediction(), self.failure_score) if r is None else r) for r in results]

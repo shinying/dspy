@@ -21,7 +21,7 @@ class ParallelExecutor:
         disable_progress_bar=False,
         provide_traceback=None,
         compare_results=False,
-        timeout=900,  # Increased from 120 to 900 seconds (15 minutes) for long-running tasks like video generation
+        timeout=300,  # Increased from 120 to 300 seconds (5 minutes) for reasoning tasks
         straggler_limit=3,
     ):
         """
@@ -204,11 +204,7 @@ class ParallelExecutor:
                 pbar.close()
 
         finally:
-            # Wait for all worker threads to completely finish
-            # This is CRITICAL to prevent race conditions where code that called
-            # executor.execute() assumes all work is done (e.g., bootstrap_trace_data
-            # restoring patched methods in a finally block)
-            executor.shutdown(wait=True)
+            executor.shutdown(wait=False)
 
         if self.cancel_jobs.is_set():
             logger.warning("Execution cancelled due to errors or interruption.")

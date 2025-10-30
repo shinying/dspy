@@ -54,36 +54,15 @@ def bootstrap_trace_data(
     )
 
     def wrapped_metric(example, prediction, trace=None):
-        # Diagnostic: Check if we received a tuple or a Prediction object
-        if not isinstance(prediction, tuple):
-            import sys
-            import threading
-            # Log diagnostic information before failing
-            print(f"\n{'='*80}", file=sys.stderr, flush=True)
-            print(f"[ERROR] wrapped_metric received non-tuple prediction!", file=sys.stderr, flush=True)
-            print(f"  Thread: {threading.current_thread().name}", file=sys.stderr, flush=True)
-            print(f"  program instance id: {id(program)}", file=sys.stderr, flush=True)
-            print(f"  Type: {type(prediction)}", file=sys.stderr, flush=True)
-            print(f"  Is Prediction: {isinstance(prediction, Prediction)}", file=sys.stderr, flush=True)
-            if hasattr(prediction, '__iter__'):
-                try:
-                    items = list(prediction)
-                    print(f"  Iterable with {len(items)} items: {items}", file=sys.stderr, flush=True)
-                except:
-                    pass
-            # Check if program.forward is still patched
-            print(f"  program.forward type: {type(program.forward)}", file=sys.stderr, flush=True)
-            print(f"  program.forward is MethodType: {isinstance(program.forward, MethodType)}", file=sys.stderr, flush=True)
-            has_instance_forward = 'forward' in program.__dict__
-            print(f"  'forward' in program.__dict__: {has_instance_forward}", file=sys.stderr, flush=True)
-            # Check if it's the patched version by comparing function names
-            current_forward_func = program.forward.__func__ if hasattr(program.forward, '__func__') else None
-            print(f"  program.forward.__func__.__name__: {current_forward_func.__name__ if current_forward_func else 'N/A'}", file=sys.stderr, flush=True)
-            print(f"  Expected patched name: 'patched_forward'", file=sys.stderr, flush=True)
-            print(f"  Is patched: {current_forward_func.__name__ == 'patched_forward' if current_forward_func else False}", file=sys.stderr, flush=True)
-            print(f"{'='*80}\n", file=sys.stderr, flush=True)
+        # Handle both cases defensively:
+        # 1. Normal: prediction is (Prediction, trace) tuple from patched forward
+        # 2. Race condition: prediction is Prediction object from unpatched forward
+        if isinstance(prediction, tuple):
+            # Normal case: patched forward returned (prediction, trace)
+            prediction, trace = prediction
+        # else: prediction is already a Prediction object (race condition occurred)
+        # Use it directly with trace=None (passed as parameter)
 
-        prediction, _ = prediction
         if isinstance(prediction, FailedPrediction):
             return prediction.format_reward or format_failure_score
         return metric(example, prediction, trace) if metric else True

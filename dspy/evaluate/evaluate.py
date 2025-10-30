@@ -184,11 +184,14 @@ class Evaluate:
         # program.forward is patched to return a tuple of (dspy.Prediction, trace)
         videos = [program.generate_video(
                     example.image_path,
-                    prediction[0].detailed_prompt,
-                    prediction[0].refined_track)
-                for example, prediction in zip(devset, predictions)]
+                    prediction[0].detailed_prompt if isinstance(prediction, tuple) else prediction.detailed_prompt,
+                    prediction[0].refined_track if isinstance(prediction, tuple) else prediction.refined_track
+                ) for example, prediction in zip(devset, predictions)]
         for prediction, video in zip(predictions, videos):
-            prediction[0].video = video
+            if isinstance(prediction, tuple):
+                prediction[0].video = video
+            else:
+                prediction.video = video
 
         def judge(inputs):
             example, prediction = inputs

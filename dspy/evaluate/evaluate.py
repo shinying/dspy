@@ -197,7 +197,7 @@ class Evaluate:
             example, prediction = inputs
             score = metric(example, prediction)
             return prediction, score
-        results = executor.execute(judge, zip(devset, predictions), compare_results=True)
+        results = executor.execute(judge, list(zip(devset, predictions)), compare_results=True)
         assert len(devset) == len(results)
 
         results = [((dspy.Prediction(), self.failure_score) if r is None else r) for r in results]

@@ -3,9 +3,6 @@ from dataclasses import dataclass
 from types import MethodType
 from typing import Any, Callable, TypedDict
 
-# Import for diagnostic logging
-from dspy.primitives.prediction import Prediction
-
 import dspy
 from dspy.evaluate.evaluate import Evaluate
 from dspy.primitives.example import Example
@@ -119,9 +116,7 @@ def bootstrap_trace_data(
 
                 return failed_pred, trace
 
-    # Store the patched forward for verification
-    patched_forward_method = MethodType(patched_forward, program)
-    program.forward = patched_forward_method
+    program.forward = MethodType(patched_forward, program)
 
     try:
         results = evaluator(
@@ -130,19 +125,7 @@ def bootstrap_trace_data(
             callback_metadata=callback_metadata,
         ).results
     finally:
-        # Only restore if the current forward is still the one we patched
-        # This prevents race conditions where another bootstrap_trace_data call
-        # might have patched the same program instance
-        if program.forward is patched_forward_method:
-            program.forward = original_forward
-        else:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(
-                f"bootstrap_trace_data: program.forward was modified during evaluation! "
-                f"Expected {patched_forward_method}, got {program.forward}. "
-                f"Not restoring original_forward to avoid corrupting concurrent evaluations."
-            )
+        program.forward = original_forward
 
     data = []
     for example_ind, (example, prediction, score) in enumerate(results):

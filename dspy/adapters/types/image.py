@@ -22,6 +22,7 @@ except ImportError:
 
 class Image(Type):
     url: str
+    detail: str
 
     model_config = pydantic.ConfigDict(
         frozen=True,
@@ -30,7 +31,7 @@ class Image(Type):
         extra="forbid",
     )
 
-    def __init__(self, url: Any = None, *, download: bool = False, **data):
+    def __init__(self, url: Any = None, *, download: bool = False, detail: str = "auto", **data):
         """Create an Image.
 
         Parameters
@@ -63,6 +64,8 @@ class Image(Type):
             # Normalize any accepted input into a base64 data URI or plain URL.
             data["url"] = encode_image(data["url"], download_images=download)
 
+        data["detail"] = detail
+
         # Delegate the rest of initialization to pydantic's BaseModel.
         super().__init__(**data)
 
@@ -72,7 +75,10 @@ class Image(Type):
             image_url = encode_image(self.url)
         except Exception as e:
             raise ValueError(f"Failed to format image for DSPy: {e}")
-        return [{"type": "input_image", "image_url": image_url}]
+        request = {"type": "input_image", "image_url": image_url}
+        if self.detail != "auto":
+            request["detail"] = self.detail
+        return [request]
 
     @classmethod
     def from_url(cls, url: str, download: bool = False):
